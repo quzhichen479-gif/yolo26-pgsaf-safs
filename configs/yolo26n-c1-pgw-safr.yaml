@@ -1,0 +1,71 @@
+# YAML fragment / template for C1 + PGW-SAFR
+# Codex should merge this into the existing YOLO26-C1 YAML, not use it blindly.
+#
+# Goal:
+#   Insert a pseudo-specular guided Haar-wavelet recalibration block after C1
+#   P3 recalibration and before Detect. This remains a full-image, one-pass
+#   detector variant. It is not RAS/RGZ and does not use crop zoom.
+#
+# Core idea:
+#   - DWT separates LL/LH/HL/HH bands inside the C1 feature.
+#   - Rcore suppresses specular-core high-frequency response.
+#   - Eedge lightly preserves LH/HL edge bands outside high-risk cores.
+#   - HH is not positively boosted by default because diagonal high-frequency
+#     often contains water ripple, foam, and specular noise.
+
+custom_modules:
+  - modules.pgw_safr.PGWSAFR
+
+experiment:
+  name: C1_PGW_SAFR_P3
+  inference_form: full_image_one_pass
+  base_model: C1
+  insert_position:
+    - after_P3_C1_recalibration
+    - before_Detect
+  do_not_change:
+    - Detect
+    - loss
+    - assignment
+    - dataset
+    - training_protocol
+  recommended_first_ablation:
+    module: PGWSAFR
+    args:
+      c: "same_as_P3_C1_channels"
+      hidden_ratio: 0.5
+      mode: veto
+      max_edge_gain: 0.0
+      max_core_penalty: 0.25
+      boost_hh: false
+  recommended_main_ablation:
+    module: PGWSAFR
+    args:
+      c: "same_as_P3_C1_channels"
+      hidden_ratio: 0.5
+      mode: safr
+      max_edge_gain: 0.12
+      max_core_penalty: 0.25
+      boost_hh: false
+  eval_focus:
+    - AP
+    - AP75
+    - APs
+    - precision
+    - reflection_highlight_background_FP
+    - wave_ripple_FP
+    - foam_FP
+    - latency
+
+# Pseudocode neck change:
+#   P3_C1 = SpecularAwareFeatureRecalibration(P3)
+#   P4_C1 = SpecularAwareFeatureRecalibration(P4)
+#   P5_C1 = SpecularAwareFeatureRecalibration(P5)
+#
+#   P3_PGW = PGWSAFR(c=P3_channels, mode="safr")([P3_C1, spec_prior])
+#
+#   Detect([P3_PGW, P4_C1, P5_C1])
+#
+# If the current YAML parser cannot pass spec_prior through layer inputs,
+# implement a small wrapper around the existing C1 recalibration stage that has
+# access to the same Rcore/Eedge maps and returns only the refined P3 tensor.
