@@ -1,0 +1,60 @@
+# Template config for C1-CVRC.
+#
+# Codex instructions:
+# 1. Copy the real `yolo26-safrg-pspatial` C1 YAML from the actual YOLO26 repo.
+# 2. Do not edit the original C1 YAML.
+# 3. Add only CVRC switches and optional ZASG insertion after C1 P3 recalibration.
+# 4. Keep Detect input as [P3_C1_or_CVRC, P4_C1, P5_C1].
+# 5. Keep loss, assignment, data split, and base hyperparameters identical to C1.
+
+_base_: yolo26-safrg-pspatial.yaml  # replace with the actual C1 config path if the repo does not support _base_
+
+cvrc:
+  enabled: true
+  mode: full_infer_train_crop_rectify
+  warmup_epochs: 15
+  crop_imgsz: 640
+  context_ratio: 0.05
+  max_positive_crops_per_image: 3
+  max_total_crops_per_image: 4
+  hard_negative_ratio: 0.10
+  min_box_side_px: 2
+  small_box_area_thr: 1024
+  low_conf_thr: 0.25
+  high_conf_thr: 0.55
+  nms_iou_thr: 0.70
+  min_crop_side_px: 96
+
+  loss:
+    lambda_crop: 0.35
+    lambda_box_rect: 0.20
+    lambda_quality_rect: 0.10
+    lambda_spec_neg: 0.05
+    min_crop_iou_gain: 0.05
+    match_iou_thr: 0.30
+    rcore_veto_thr: 0.65
+
+  selector_score:
+    det_small_score: 1.0
+    eedge: 0.8
+    rcore: -1.2
+    box_uncertainty: 0.5
+    context_score: 0.3
+    overlap_penalty: -0.5
+
+  logging:
+    save_crop_stats: true
+    save_rectification_stats: true
+    save_selector_stats: true
+    save_visual_crops: true
+
+zasg:
+  enabled: false
+  insert_after: P3_after_SpecularAwareFeatureRecalibration
+  gamma_init: 0.0
+  supervise_from_cvrc_windows: true
+
+rgz_infer:
+  enabled: false
+  max_zooms: 0
+  fusion: none
