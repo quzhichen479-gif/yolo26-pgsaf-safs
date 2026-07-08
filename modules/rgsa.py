@@ -110,8 +110,9 @@ class RGSA(nn.Module):
         self.refine = ConvBNAct(refine_in, c, k=1)
 
         # Selection map head. It sees compressed P3 evidence and spec cues.
-        # Inputs: projected P3, channel mean, channel max, Rcore, Eedge, Eedge*(1-Rcore).
-        select_in = c_hidden + 5
+        # Inputs: projected P3, channel mean, channel max, Rcore, Eedge,
+        # Eedge*(1-Rcore), and Eedge-Rcore.
+        select_in = c_hidden + 6
         self.select_head = nn.Sequential(
             ConvBNAct(select_in, c_hidden, k=3),
             ConvBNAct(c_hidden, max(8, c_hidden // 2), k=3),
