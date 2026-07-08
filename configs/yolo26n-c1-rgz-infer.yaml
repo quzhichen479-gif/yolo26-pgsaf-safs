@@ -1,0 +1,45 @@
+# Optional accuracy-first C1-RGZ inference template.
+#
+# Use only after C1-CVRC full-image training is stable.
+# This is not the default model path. It is the structured two-pass counterpart
+# to E5-v2c / RAS selective inference, with fewer selected zooms and spec-aware fusion.
+
+_base_: yolo26n-c1-cvrc.yaml
+
+cvrc:
+  enabled: true
+  mode: full_plus_zoom_infer
+
+rgz_infer:
+  enabled: true
+  max_zooms: 6        # run ablations: 4, 6, 8
+  crop_imgsz: 640
+  proposal: reflectance_guided
+  fusion: spec_wbf    # fallback to wbf or nms if spec_wbf is not implemented
+  duplicate_suppression_iou: 0.65
+  min_zoom_score: 0.05
+
+  proposal_sources:
+    low_conf_small: true
+    reflectance_edge: true
+    hard_negative: false
+    sparse_fallback: true
+
+  score_weights:
+    det_small_score: 1.0
+    eedge: 0.8
+    rcore: -1.2
+    box_uncertainty: 0.5
+    context_score: 0.3
+    overlap_penalty: -0.5
+
+  spec_fusion:
+    score_eedge_weight: 0.4
+    score_rcore_weight: -0.6
+    isolated_rcore_veto_thr: 0.75
+
+outputs:
+  save_selected_zooms_json: true
+  save_fusion_stats_csv: true
+  save_duplicate_stats_csv: true
+  save_latency_csv: true
