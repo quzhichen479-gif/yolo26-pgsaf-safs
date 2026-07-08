@@ -1,0 +1,25 @@
+# YAML fragment / template for Experiment 2: C1 + SAFS-Block
+# Codex should merge this into the existing YOLO26-C1 YAML, not use it blindly.
+# Goal: insert SAFSBlock after P3_C1 and before Detect, with Rcore/Eedge gate.
+
+# Pseudocode neck change:
+#   P3_C1 = SpecularAwareFeatureRecalibration(P3)
+#   P3_SAFS = SAFSBlock([P3_C1, spec_prior])
+#   Detect([P3_SAFS, P4_C1, P5_C1])
+
+custom_modules:
+  - modules.safs_block.SAFSBlock
+
+experiment:
+  name: C1_SAFSBlock
+  do_not_change:
+    - Detect
+    - loss
+    - assignment
+    - dataset
+    - training_protocol
+  eval_focus:
+    - APs
+    - AP75
+    - reflection_highlight_background_FP
+    - wave_ripple_FP
