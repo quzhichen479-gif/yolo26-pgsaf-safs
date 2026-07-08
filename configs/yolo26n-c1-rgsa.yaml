@@ -1,0 +1,53 @@
+# YOLO26n-C1 + RGSA integration template
+#
+# This is NOT a drop-in final YAML because the exact layer indices depend on the
+# real YOLO26-C1 repository. Codex must copy the current C1 YAML and insert RGSA
+# after C1 P3 recalibration and before Detect.
+#
+# Expected conceptual graph:
+#
+#   P3_raw, P4_raw, P5_raw
+#        ↓
+#   C1 specular-aware recalibration
+#        ↓
+#   P3_C1, P4_C1, P5_C1
+#        ↓
+#   RGSA(P3_C1, optional [Rcore,Eedge])
+#        ↓
+#   Detect([P3_RGSA, P4_C1, P5_C1])
+#
+# Constraints:
+#   - Do not modify Detect.
+#   - Do not modify loss or assignment.
+#   - Do not overwrite original C1 config.
+#   - gamma in RGSA must initialize to 0.
+
+# Example pseudo-diff relative to C1 YAML:
+#
+# Original C1 ending may look like:
+#   - [P3_C1_INDEX, 1, SpecularAwareFeatureRecalibration, [C3]]
+#   - [P4_C1_INDEX, 1, SpecularAwareFeatureRecalibration, [C4]]
+#   - [P5_C1_INDEX, 1, SpecularAwareFeatureRecalibration, [C5]]
+#   - [[P3_C1, P4_C1, P5_C1], 1, Detect, [nc]]
+#
+# Replace with:
+#   - [[P3_C1, SPEC_INDEX], 1, RGSA, [C3, 0.5, 0.35]]  # P3_RGSA
+#   - [[P3_RGSA, P4_C1, P5_C1], 1, Detect, [nc]]
+#
+# If SPEC_INDEX is not available in parse_model, use:
+#   - [P3_C1, 1, RGSA, [C3, 0.5, 0.35]]
+# and run the content-only ablation first, or implement a C1 wrapper that passes
+# Rcore/Eedge internally.
+
+nc: ${NC_REPLACE_WITH_DATASET_CLASSES}
+scales:
+  n: [0.33, 0.25, 1024]
+
+backbone:
+  # Copy from the current YOLO26n-C1 YAML.
+  []
+
+head:
+  # Copy from the current YOLO26n-C1 YAML.
+  # Insert RGSA after P3_C1 and before Detect.
+  []
