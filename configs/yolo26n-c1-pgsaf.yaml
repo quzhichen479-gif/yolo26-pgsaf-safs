@@ -1,0 +1,25 @@
+# YAML fragment / template for Experiment 1: C1 + PG-SAF
+# Codex should merge this into the existing YOLO26-C1 YAML, not use it blindly.
+# Goal: insert PGSAF where P4 semantics are upsampled and fused into P3.
+
+# Pseudocode neck change:
+#   P4_up = Upsample(P4)
+#   P3_fused = PGSAF([P3_C1_or_P3_raw, P4_up_or_P4, spec_prior])
+#   continue original neck/Detect with P3_fused
+
+custom_modules:
+  - modules.pg_saf.PGSAF
+
+experiment:
+  name: C1_PGSAF
+  do_not_change:
+    - Detect
+    - loss
+    - assignment
+    - dataset
+    - training_protocol
+  eval_focus:
+    - APs
+    - AP75
+    - small_FN
+    - localization_partial_overlap
