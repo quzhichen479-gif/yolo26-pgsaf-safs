@@ -1,4 +1,4 @@
-# YOLO26 PG-SAF / SAFS / RSQ-Loss / BUDQ-YOLO26 experiments
+# YOLO26 PG-SAF / SAFS / RSQ-Loss / BUDQ-YOLO26 / Dynamic Upsample experiments
 
 This repository contains Codex-ready implementation packages for controlled YOLO26-C1 ablations and training-side improvements for water-surface floating waste detection.
 
@@ -28,27 +28,40 @@ This repository contains Codex-ready implementation packages for controlled YOLO
    - Do not change Detect, assignment, dataset split, model structure, or evaluation protocol.
    - Main components: uncertainty-aware box regression with core coverage, spill penalty, NWD smoothing, delayed MPDIoU tightening, and optional duplicate-aware pairwise ranking.
 
+5. **C1 + DySample / CARAFE P4-to-P3**
+   - Goal: test mature dynamic upsampling / content-aware reassembly modules on C1's P4-to-P3 semantic injection path.
+   - Insert position: replace or wrap the fixed P4-to-P3 upsample/fusion path.
+   - Do not change Detect, loss, assignment, dataset split, or training protocol.
+   - Main variants: DySample-P4toP3, CARAFE-P4toP3, CARAFEPlusLite-P4toP3, and optional spec-gated residual fusion only after vanilla modules are stable.
+
 ## Files
 
 - `CODEX_IMPLEMENTATION_PROMPT.md`: full instruction for Codex to adapt PG-SAF / SAFSBlock into the actual YOLO26-C1 repository.
 - `CODEX_RSQ_LOSS_IMPLEMENTATION_PROMPT.md`: full instruction for Codex to implement RSQ-Loss in the actual YOLO26-C1 repository.
 - `CODEX_BUDQ_YOLO26_IMPLEMENTATION_PROMPT.md`: full instruction for Codex to implement the Y-series BUDQ-YOLO26 loss experiments.
+- `CODEX_DYSAMPLE_CARAFE_IMPLEMENTATION_PROMPT.md`: full instruction for Codex to implement DySample / CARAFE P4-to-P3 ablations.
 - `docs/RSQ_LOSS_PROJECT_DESIGN.md`: RSQ-Loss method design, formula, implementation architecture, and paper narrative.
 - `docs/BUDQ_YOLO26_PROJECT_DESIGN.md`: BUDQ-YOLO26 method design, YOLO26 constraints, formulas, and paper narrative.
 - `modules/pg_saf.py`: PG-SAF prototype.
 - `modules/safs_block.py`: SAFSBlock prototype.
+- `modules/dynamic_upsample.py`: DySample, CARAFE, CARAFEPlusLite, and residual C1 P4-to-P3 dynamic fusion prototypes.
 - `modules/budq_yolo26_loss.py`: DFL-free BUDQ-YOLO26 PyTorch loss prototype.
 - `configs/yolo26n-c1-pgsaf.yaml`: YAML integration template.
 - `configs/yolo26n-c1-safs.yaml`: YAML integration template.
+- `configs/yolo26n-c1-dysample-p4p3.yaml`: DySample P4-to-P3 YAML integration template.
+- `configs/yolo26n-c1-carafe-p4p3.yaml`: CARAFE / CARAFEPlusLite P4-to-P3 YAML integration template.
 - `configs/hyp-c1-budq-yolo26.yaml`: BUDQ-YOLO26 hyperparameter template.
-- `scripts/run_experiment_matrix.md`: recommended PG-SAF / SAFS experiment matrix and acceptance criteria.
+- `scripts/run_experiment_matrix.md`: recommended structure-module experiment matrix and acceptance criteria.
 - `scripts/run_rsq_loss_experiment_matrix.md`: recommended RSQ-Loss experiment matrix and acceptance criteria.
 - `scripts/run_budq_yolo26_experiment_matrix.md`: recommended Y-series BUDQ-YOLO26 experiment matrix and acceptance criteria.
+- `scripts/smoke_test_dynamic_upsample.py`: import, shape, and gamma=0 no-op smoke test for dynamic upsampling modules.
 
 ## Main principle
 
-PG-SAF and SAFSBlock are residual-safe and C1-compatible structure ablations. They are not intended to replace RAS/RGZ image-space zoom.
+PG-SAF, SAFSBlock, DySample, and CARAFE are structure ablations for C1-compatible full-image one-pass detection. They are not intended to replace RAS/RGZ image-space zoom.
 
 RSQ-Loss is a training-side loss ablation. It is not intended to change the detector head or assignment. Current RSQ evidence suggests that NWD / MPDIoU+NWD are useful signals, while the full SpecEdge/SpecCore/quality form should not continue as the next mainline without redesign.
 
 BUDQ-YOLO26 is the next recommended loss mainline. It is explicitly YOLO26-compatible and DFL-free. It should work on continuous box outputs only, preserve Detect and assignment, and first validate boundary uncertainty before adding ranking.
+
+For DySample / CARAFE, the paper-safe claim is not that they solve the real-pixel bottleneck. Their role is to improve P4-to-P3 semantic alignment and reduce harmful context injection into C1's small-object branch while preserving one-pass deployment.
