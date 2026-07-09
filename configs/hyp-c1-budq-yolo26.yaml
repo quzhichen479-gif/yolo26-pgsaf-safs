@@ -1,0 +1,51 @@
+# Hyperparameter template for YOLO26-C1 + BUDQ-YOLO26 Loss
+#
+# This file is a Codex-ready template. Adapt key names to the actual YOLO26
+# training configuration system.
+#
+# Critical constraints:
+# - Do not add DFL.
+# - Do not add reg_max.
+# - Do not add distribution bins.
+# - Do not change Detect.
+# - Do not change assignment for Y0-Y5.
+
+# Loss switch
+box_loss_type: budq_ubr        # original | nwd | mpdiou_nwd | budq_ubr
+budq_enable: true
+
+# YOLO26-compatible continuous-box boundary uncertainty
+budq_tau: 32.0
+budq_nwd_c: 16.0
+budq_rho: 0.10
+budq_u_min: 1.0
+budq_u_max: 4.0
+budq_tight_warmup_epochs: 30
+
+# UBR component weights
+budq_lambda_cover: 1.0
+budq_lambda_spill: 0.5
+budq_lambda_nwd: 1.0
+budq_lambda_mpd: 0.5
+
+# Ranking controls
+# Start with ranking disabled for Y3. Enable progressively for Y4/Y5.
+budq_enable_rank: false
+budq_enable_dup_rank: false
+budq_rank_margin: 0.10
+budq_dup_margin: 0.05
+budq_rank_topk_neg: 32
+budq_pos_iou_thr: 0.50
+budq_neg_iou_thr: 0.25
+budq_lambda_rank_posneg: 0.2
+budq_lambda_rank_dup: 0.1
+
+# Logging controls
+budq_log_components: true
+budq_finite_guard: true
+
+# Explicit non-goals; keep these inactive even if the actual codebase has stale keys.
+dfl: 0.0
+reg_max: 0
+use_dfl: false
+use_distribution_box: false
