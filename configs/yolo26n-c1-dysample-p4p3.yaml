@@ -1,0 +1,74 @@
+# YAML fragment / template for C1 + DySample P4->P3
+# Codex should merge this into the existing YOLO26-C1 YAML, not use it blindly.
+#
+# Goal:
+#   Replace or wrap the fixed P4->P3 upsample/fusion path with DySample while
+#   preserving C1's full-image one-pass detector form.
+#
+# Recommended first implementation:
+#   1. Find the neck stage where P4_C1 is upsampled to P3 spatial resolution.
+#   2. Replace nearest/bilinear Upsample with DySample(c=P4_channels, scale=2).
+#   3. Keep the original Concat/C2f/fusion layers unchanged.
+#
+# Safer fallback if direct Upsample replacement is hard:
+#   Apply C1P4P3DynamicFusion after C1 recalibration and before Detect:
+#       P3_Dy = C1P4P3DynamicFusion(c3, c4, upsampler="dysample")([P3_C1, P4_C1, spec_prior])
+#       Detect([P3_Dy, P4_C1, P5_C1])
+
+custom_modules:
+  - modules.dynamic_upsample.DySample
+  - modules.dynamic_upsample.C1P4P3DynamicFusion
+
+experiment:
+  name: C1_DySample_P4toP3
+  inference_form: full_image_one_pass
+  base_model: C1
+  target_path:
+    - P4_C1_to_P3_C1_upsample
+  do_not_change:
+    - Detect
+    - loss
+    - assignment
+    - dataset
+    - training_protocol
+  preferred_ablation:
+    module: DySample
+    args:
+      c: "same_as_P4_C1_channels"
+      scale: 2
+      groups: 4
+      use_scope: false
+      offset_scale: 0.25
+  fallback_residual_ablation:
+    module: C1P4P3DynamicFusion
+    args:
+      c3: "same_as_P3_C1_channels"
+      c4: "same_as_P4_C1_channels"
+      c_out: "same_as_P3_C1_channels"
+      upsampler: dysample
+      reduction: 0.5
+      groups: 4
+      use_spec_gate: false
+  optional_second_stage:
+    module: C1P4P3DynamicFusion
+    args:
+      upsampler: dysample
+      use_spec_gate: true
+  eval_focus:
+    - AP
+    - AP75
+    - APs
+    - ARs
+    - localization_partial_overlap
+    - reflection_highlight_background_FP
+    - wave_ripple_FP
+    - latency
+
+# Pseudocode direct replacement:
+#   P4_up = DySample(c=P4_channels, scale=2)(P4_C1)
+#   P3_fused = OriginalFusion([P4_up, P3_C1])
+#   Detect([P3_fused, P4_C1, P5_C1])
+#
+# Pseudocode residual fallback:
+#   P3_Dy = C1P4P3DynamicFusion(c3=P3_channels, c4=P4_channels, upsampler="dysample")([P3_C1, P4_C1, spec_prior])
+#   Detect([P3_Dy, P4_C1, P5_C1])

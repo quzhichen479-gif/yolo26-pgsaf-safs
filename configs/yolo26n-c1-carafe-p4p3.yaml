@@ -1,0 +1,75 @@
+# YAML fragment / template for C1 + CARAFE / CARAFE++-Lite P4->P3
+# Codex should merge this into the existing YOLO26-C1 YAML, not use it blindly.
+#
+# Goal:
+#   Replace or wrap the fixed P4->P3 upsample/fusion path with content-aware
+#   reassembly while preserving the full-image one-pass C1 detector.
+#
+# CARAFE first; CARAFEPlusLite only after CARAFE is positive or at least stable.
+
+custom_modules:
+  - modules.dynamic_upsample.CARAFE
+  - modules.dynamic_upsample.CARAFEPlusLite
+  - modules.dynamic_upsample.C1P4P3DynamicFusion
+
+experiment:
+  name: C1_CARAFE_P4toP3
+  inference_form: full_image_one_pass
+  base_model: C1
+  target_path:
+    - P4_C1_to_P3_C1_upsample
+  do_not_change:
+    - Detect
+    - loss
+    - assignment
+    - dataset
+    - training_protocol
+  preferred_ablation:
+    module: CARAFE
+    args:
+      c: "same_as_P4_C1_channels"
+      scale: 2
+      compress_channels: 64
+      encoder_kernel: 3
+      up_kernel: 5
+  stronger_ablation:
+    module: CARAFEPlusLite
+    args:
+      c: "same_as_P4_C1_channels"
+      scale: 2
+      compress_channels: 64
+      encoder_kernel: 5
+      up_kernel: 5
+  fallback_residual_ablation:
+    module: C1P4P3DynamicFusion
+    args:
+      c3: "same_as_P3_C1_channels"
+      c4: "same_as_P4_C1_channels"
+      c_out: "same_as_P3_C1_channels"
+      upsampler: carafe
+      reduction: 0.5
+      use_spec_gate: false
+  optional_second_stage:
+    module: C1P4P3DynamicFusion
+    args:
+      upsampler: carafe_plus
+      use_spec_gate: true
+  eval_focus:
+    - AP
+    - AP75
+    - APs
+    - ARs
+    - localization_partial_overlap
+    - reflection_highlight_background_FP
+    - wave_ripple_FP
+    - latency
+    - params_flops
+
+# Pseudocode direct replacement:
+#   P4_up = CARAFE(c=P4_channels, scale=2)(P4_C1)
+#   P3_fused = OriginalFusion([P4_up, P3_C1])
+#   Detect([P3_fused, P4_C1, P5_C1])
+#
+# Pseudocode residual fallback:
+#   P3_CF = C1P4P3DynamicFusion(c3=P3_channels, c4=P4_channels, upsampler="carafe")([P3_C1, P4_C1, spec_prior])
+#   Detect([P3_CF, P4_C1, P5_C1])
