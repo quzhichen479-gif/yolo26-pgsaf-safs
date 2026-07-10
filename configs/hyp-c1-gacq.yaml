@@ -1,0 +1,115 @@
+# C1-GACQ: GT-Anchored Cross-View Quality Learning
+# Training-only auxiliary route for YOLO26-C1.
+# With gacq_enable=false, training, validation, state_dict, export and inference
+# must be equivalent to the original C1 implementation.
+
+gacq_enable: true
+
+# ---------------------------------------------------------------------------
+# Shared C1 feature capture: MUST be before YOLO26 one-to-one x.detach().
+# Codex must inspect the real repository and fill exact module names/indices.
+# Prefer training-only forward hooks on the three C1-recalibrated outputs.
+# ---------------------------------------------------------------------------
+gacq_feature_source: c1_recalibrated_p3p4p5
+gacq_capture_mode: forward_hook        # forward_hook | explicit_train_return
+gacq_capture_layers: []                # required after repository inspection
+gacq_strides: [8, 16, 32]
+gacq_assert_no_detach: true
+gacq_assert_shared_feature_grad: true
+
+# Training-only auxiliary head
+gacq_aux_hidden_channels: 96
+gacq_aux_num_convs: 2
+gacq_aux_norm: batchnorm
+gacq_aux_remove_for_val: true
+gacq_aux_strip_from_checkpoint: true
+gacq_aux_strip_from_export: true
+
+# Fixed GT-anchored candidate points
+gacq_level_size_thresholds: [32.0, 96.0]
+gacq_candidate_radius: 1
+gacq_max_candidates_per_gt: 5
+gacq_use_prediction_matching: false
+gacq_use_teacher_box_as_target: false
+gacq_use_teacher_class_vector: false
+
+# Frozen crop teacher: used only to estimate reliability.
+gacq_teacher_enable: true
+gacq_teacher_type: ras_v2c              # ras_v2c | c1 | other_verified
+gacq_teacher_weights: ""                # required; do not guess
+gacq_teacher_input_size: 640
+gacq_teacher_amp: true
+gacq_teacher_eval_mode: true
+gacq_teacher_no_grad: true
+gacq_teacher_conf_min: 0.35
+gacq_teacher_iou_min: 0.50
+gacq_visible_fraction_min: 0.85
+gacq_stability_enable: false             # enable only after G4 passes
+gacq_stability_min: 0.50
+gacq_student_evidence_enable: false       # enable only after evidence audit
+gacq_student_evidence_min: 0.05
+
+# Crop generation. Reuse audited ZVC geometry, but match teacher training scale.
+gacq_crop_source: gt_small
+gacq_crop_size: 640
+gacq_max_crops_per_image: 2
+gacq_max_crops_per_batch: 8
+gacq_context_scale_min: 2.0
+gacq_context_scale_max: 3.5
+gacq_center_jitter: 0.10
+gacq_scale_jitter: 0.15
+gacq_min_visible_fraction: 0.85
+gacq_small_max_side_px: 32
+gacq_scale_audit_required: true
+
+# GT-anchored localization. Operate in pixel coordinates to avoid Z1 collapse.
+gacq_enable_localization: true
+gacq_lambda_loc: 1.0
+gacq_lambda_nwd: 0.5
+gacq_nwd_c: 16.0
+gacq_localization_type: giou_nwd
+gacq_coordinate_space: pixels
+
+# Localization-quality-consistent class scoring.
+# Target quality is IoU(pred, GT); teacher reliability weights the loss only.
+gacq_enable_quality: true
+gacq_lambda_quality: 0.5
+gacq_quality_target: detached_iou
+gacq_quality_fusion: geometric_mean      # sqrt(sigmoid(cls_y)*sigmoid(q))
+gacq_correct_class_only: true
+gacq_all_class_teacher_bce: false
+
+# Intra-GT pairwise ranking among center/neighbor candidates.
+gacq_enable_ranking: true
+gacq_lambda_rank: 0.10
+gacq_rank_margin: 0.05
+gacq_quality_gap_min: 0.05
+gacq_rank_cross_gt: false
+gacq_rank_background: false              # not in first mainline
+
+# Schedule
+gacq_warmup_epochs: 5
+gacq_ramp_epochs: 15
+gacq_max_total_loss_ratio: 0.10
+
+# Diagnostics and hard gates
+gacq_log_components: true
+gacq_finite_guard: true
+gacq_grad_audit_interval: 100
+gacq_grad_ratio_min: 0.25
+gacq_grad_ratio_max: 4.0
+gacq_assert_teacher_frozen: true
+gacq_assert_inference_unchanged: true
+gacq_assert_detect_unchanged: true
+gacq_assert_assignment_unchanged: true
+gacq_assert_base_loss_unchanged: true
+
+# Explicit non-goals
+gacq_modify_detect: false
+gacq_modify_assignment: false
+gacq_add_dfl: false
+gacq_add_reg_max: false
+gacq_inference_crop: false
+gacq_wbf: false
+gacq_soft_nms: false
+gacq_full_feature_l2_distill: false
