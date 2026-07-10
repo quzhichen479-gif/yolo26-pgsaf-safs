@@ -1,6 +1,6 @@
-# YOLO26 PG-SAF / SAFS / RSQ-Loss / BUDQ-YOLO26 / C1-ZVC experiments
+# YOLO26 C1 training-side experiment packages
 
-This repository contains Codex-ready implementation packages for controlled YOLO26-C1 ablations and training-side improvements for water-surface floating waste detection.
+This repository contains Codex-ready implementation packages for controlled YOLO26-C1 ablations and training-side improvements for water-surface floating-waste detection.
 
 ## Experiments
 
@@ -17,53 +17,66 @@ This repository contains Codex-ready implementation packages for controlled YOLO
 3. **C1 + RSQ-Loss**
    - Goal: verify whether a reflectance-guided small-object quality loss improves AP75/APs and reduces reflection-induced false localization.
    - Insert position: training loss only.
-   - Do not change Detect, assignment, dataset split, model structure, or evaluation protocol.
-   - Main components: MPDIoU + NWD small-object box loss, specular-edge alignment, specular-core suppression, and optional quality-aware score calibration.
-   - Current status: not recommended as the next mainline in its full SpecEdge/SpecCore/quality form.
+   - Current status: the full SpecEdge/SpecCore/quality form is not recommended as the mainline.
 
 4. **C1 + BUDQ-YOLO26 Loss**
-   - Goal: test a YOLO26-compatible, DFL-free loss for water-surface tiny-object boundary uncertainty and FreeNMS-oriented duplicate-aware score ordering.
-   - Insert position: training loss only.
-   - Do not add DFL, reg_max, distribution bins, or a distributional box head.
-   - Do not change Detect, assignment, dataset split, model structure, or evaluation protocol.
-   - Main components: uncertainty-aware box regression with core coverage, spill penalty, NWD smoothing, delayed MPDIoU tightening, and optional duplicate-aware pairwise ranking.
+   - Goal: test a YOLO26-compatible, DFL-free loss for tiny-object boundary uncertainty and FreeNMS-oriented score ordering.
+   - Do not add DFL, reg_max, distribution bins, or change Detect/assignment.
 
 5. **C1 + Zoom-View Correction (C1-ZVC)**
-   - Goal: transfer reliable image-space zoom-view knowledge into the full-image C1 student while keeping inference identical to C1.
-   - Insert position: training wrapper / auxiliary loss only.
-   - A frozen crop teacher is used only during training; validation, prediction, export, and deployment remain single-pass full-image C1.
-   - Do not modify Detect, assignment, C1 recalibration, the base loss, or inference post-processing.
-   - First experiment uses GT small-object positive crops only; reflective hard negatives are a later controlled extension.
+   - Original goal: transfer image-space zoom-view predictions into the full-image C1 student while keeping inference unchanged.
+   - Current status: **Z1 rejected**. AP/AP50/AP75/APs decreased; the box term collapsed numerically and the auxiliary gradient entered a detached one-to-one route.
+   - Keep the files as an experiment record and geometry reference. Do not continue direct teacher-box/full-class-vector distillation as the mainline.
 
-## Files
+6. **C1-GACQ: GT-Anchored Cross-View Quality Learning**
+   - Current recommended controlled direction.
+   - Uses non-detached C1-recalibrated P3/P4/P5 features through a training-only auxiliary head.
+   - GT remains the only box/class target.
+   - The frozen crop teacher estimates supervision reliability only.
+   - Correct-class and auxiliary quality scores are aligned to detached IoU, with intra-GT pairwise ranking.
+   - The teacher, crop builder, hooks and auxiliary head are removed for validation/export/deployment, leaving the original single-pass C1 graph.
 
-- `CODEX_IMPLEMENTATION_PROMPT.md`: full instruction for Codex to adapt PG-SAF / SAFSBlock into the actual YOLO26-C1 repository.
-- `CODEX_RSQ_LOSS_IMPLEMENTATION_PROMPT.md`: full instruction for Codex to implement RSQ-Loss in the actual YOLO26-C1 repository.
-- `CODEX_BUDQ_YOLO26_IMPLEMENTATION_PROMPT.md`: full instruction for Codex to implement the Y-series BUDQ-YOLO26 loss experiments.
-- `CODEX_ZVC_IMPLEMENTATION_PROMPT.md`: full instruction for Codex to implement training-only C1-ZVC in the actual YOLO26-C1 repository.
-- `docs/RSQ_LOSS_PROJECT_DESIGN.md`: RSQ-Loss method design, formula, implementation architecture, and paper narrative.
-- `docs/BUDQ_YOLO26_PROJECT_DESIGN.md`: BUDQ-YOLO26 method design, YOLO26 constraints, formulas, and paper narrative.
-- `docs/ZVC_PROJECT_DESIGN.md`: C1-ZVC evidence boundary, objective, crop curriculum, formulas, and inference-invariance requirements.
-- `modules/pg_saf.py`: PG-SAF prototype.
-- `modules/safs_block.py`: SAFSBlock prototype.
-- `modules/budq_yolo26_loss.py`: DFL-free BUDQ-YOLO26 PyTorch loss prototype.
-- `modules/zoom_view_correction.py`: tested ZVC geometry, teacher filtering, matching, positive distillation, and hard-negative helpers.
-- `configs/yolo26n-c1-pgsaf.yaml`: YAML integration template.
-- `configs/yolo26n-c1-safs.yaml`: YAML integration template.
-- `configs/hyp-c1-budq-yolo26.yaml`: BUDQ-YOLO26 hyperparameter template.
-- `configs/hyp-c1-zvc.yaml`: C1-ZVC hyperparameter and safety template.
-- `scripts/run_experiment_matrix.md`: recommended PG-SAF / SAFS experiment matrix and acceptance criteria.
-- `scripts/run_rsq_loss_experiment_matrix.md`: recommended RSQ-Loss experiment matrix and acceptance criteria.
-- `scripts/run_budq_yolo26_experiment_matrix.md`: recommended Y-series BUDQ-YOLO26 experiment matrix and acceptance criteria.
-- `scripts/run_zvc_experiment_matrix.md`: controlled Z0-Z5 C1-ZVC experiment sequence and diagnostics.
-- `tests/test_zoom_view_correction.py`: unit tests for coordinate mapping, crop geometry, reliable-teacher rejection, student gradients, and hard-negative guards.
+## Main C1-GACQ entry files
 
-## Main principle
+- `CODEX_GACQ_IMPLEMENTATION_PROMPT.md`: complete Codex execution instruction for the actual YOLO26-C1 repository.
+- `docs/GACQ_PROJECT_DESIGN.md`: evidence boundary, architecture, formulas, gradient requirements, risks and paper-safe claim.
+- `modules/gacq_training_route.py`: tested detector-agnostic PyTorch prototype for the auxiliary head, fixed GT points, reliability, localization, quality and ranking losses.
+- `configs/hyp-c1-gacq.yaml`: configuration and safety template.
+- `scripts/run_gacq_experiment_matrix.md`: G0-G6 causal ablation order, acceptance criteria and stop conditions.
+- `tests/test_gacq_training_route.py`: tensor, reliability, non-detached feature-gradient, ramp and checkpoint-strip tests.
 
-PG-SAF and SAFSBlock are residual-safe and C1-compatible structure ablations. They are not intended to replace RAS/RGZ image-space zoom.
+## Other files
 
-RSQ-Loss is a training-side loss ablation. It is not intended to change the detector head or assignment. Current RSQ evidence suggests that NWD / MPDIoU+NWD are useful signals, while the full SpecEdge/SpecCore/quality form should not continue as the next mainline without redesign.
+- `CODEX_IMPLEMENTATION_PROMPT.md`: PG-SAF / SAFSBlock integration instruction.
+- `CODEX_RSQ_LOSS_IMPLEMENTATION_PROMPT.md`: RSQ-Loss implementation instruction.
+- `CODEX_BUDQ_YOLO26_IMPLEMENTATION_PROMPT.md`: BUDQ-YOLO26 implementation instruction.
+- `CODEX_ZVC_IMPLEMENTATION_PROMPT.md`: original C1-ZVC implementation record.
+- `docs/RSQ_LOSS_PROJECT_DESIGN.md`
+- `docs/BUDQ_YOLO26_PROJECT_DESIGN.md`
+- `docs/ZVC_PROJECT_DESIGN.md`
+- `modules/pg_saf.py`
+- `modules/safs_block.py`
+- `modules/budq_yolo26_loss.py`
+- `modules/zoom_view_correction.py`
+- `configs/yolo26n-c1-pgsaf.yaml`
+- `configs/yolo26n-c1-safs.yaml`
+- `configs/hyp-c1-budq-yolo26.yaml`
+- `configs/hyp-c1-zvc.yaml`
+- `scripts/run_experiment_matrix.md`
+- `scripts/run_rsq_loss_experiment_matrix.md`
+- `scripts/run_budq_yolo26_experiment_matrix.md`
+- `scripts/run_zvc_experiment_matrix.md`
+- `tests/test_zoom_view_correction.py`
 
-BUDQ-YOLO26 is explicitly YOLO26-compatible and DFL-free. It works on continuous box outputs, preserves Detect and assignment, and first validates boundary uncertainty before adding ranking.
+## C1-GACQ implementation principle
 
-C1-ZVC treats image-space zoom as a privileged training observation, not a deployment branch. Its first priority is to preserve C1 full-image performance while transferring reliable local classification and localization signals from a frozen crop-view teacher. It does not claim to recreate physical pixels that are absent at full-image inference.
+```text
+full-image C1 shared features before detach
++ training-only auxiliary head
++ fixed GT-anchored localization
++ crop-teacher reliability weighting
++ IoU-consistent class/quality scoring and ranking
+= original C1 inference after stripping the auxiliary route
+```
+
+C1-GACQ is an unvalidated research hypothesis until the gradient audit, disabled-equivalence tests and paired G0-G4 experiments pass. Do not claim performance improvement from the design or prototype alone.
