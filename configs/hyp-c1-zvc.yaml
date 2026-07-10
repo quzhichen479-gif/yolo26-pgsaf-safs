@@ -1,0 +1,67 @@
+# Hyperparameter template for YOLO26-C1 + training-only Zoom-View Correction
+#
+# Adapt key registration to the actual YOLO26 configuration system.
+# With zvc_enable=false, behavior must be identical to the original C1 trainer.
+
+zvc_enable: true
+
+# Frozen crop teacher
+zvc_teacher_type: ras_v2c          # ras_v2c | c1 | ema_later
+zvc_teacher_weights: ""            # required for ras_v2c/c1; do not guess the path
+zvc_teacher_input_size: 640
+zvc_teacher_batch_size: 4
+zvc_teacher_amp: true
+
+# Crop source and geometry
+zvc_crop_source: gt_small          # gt_small | failure_driven | curated_hardneg
+zvc_crop_size: 640
+zvc_max_crops_per_image: 2
+zvc_max_crops_per_batch: 8
+zvc_context_scale_min: 2.0
+zvc_context_scale_max: 3.5
+zvc_center_jitter: 0.10
+zvc_scale_jitter: 0.15
+zvc_min_visible_fraction: 0.85
+zvc_small_max_side_px: 32
+zvc_min_crop_size_px: 96
+
+# Reliable positive teacher filter
+zvc_teacher_pos_conf: 0.35
+zvc_teacher_pos_iou: 0.50
+zvc_match_iou_min: 0.10
+zvc_max_positive_pairs_per_image: 64
+
+# Positive correction
+zvc_temperature: 2.0
+zvc_lambda_cls: 0.25
+zvc_lambda_box: 0.25
+zvc_box_loss_type: smooth_l1       # smooth_l1 | giou
+zvc_warmup_epochs: 10
+zvc_ramp_epochs: 20
+
+# Reflective hard-negative extension
+# Keep disabled for Z1.
+zvc_enable_hardneg: false
+zvc_hardneg_manifest: ""
+zvc_teacher_neg_conf_max: 0.05
+zvc_student_hardneg_conf: 0.10
+zvc_hardneg_reliability_min: 0.80
+zvc_lambda_hardneg: 0.05
+zvc_max_hardneg_candidates_per_crop: 32
+
+# Diagnostics and safety
+zvc_log_components: true
+zvc_finite_guard: true
+zvc_save_crop_debug: false
+zvc_debug_max_images_per_epoch: 16
+zvc_assert_teacher_frozen: true
+zvc_assert_inference_unchanged: true
+zvc_strip_teacher_from_checkpoint: true
+
+# Explicit non-goals
+zvc_feature_distill: false
+zvc_inference_crop: false
+zvc_wbf: false
+zvc_soft_nms: false
+zvc_modify_assignment: false
+zvc_modify_detect: false
